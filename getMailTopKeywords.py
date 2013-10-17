@@ -3,10 +3,10 @@
 
 import sys
 import os
-import optparse
-import locale
-import stripHTML
+import time
+import math
 from HTMLParser import HTMLParser
+from progress_bar import ProgressBar
 
 try:
     import pyzmail
@@ -26,40 +26,47 @@ def main(argv):
     extractMailFromPath(argv[1])
 
 def extractMailFromPath(path):
-    listing = os.listdir(path)
+    #First we get 
+    numberOfFiles = 0
+    for root, subFolders, files in os.walk(path):
+        for filename in files[1:]:
+            numberOfFiles += 1
+
+    counter = 0
     text = ""
     for root, subFolders, files in os.walk(path):
-    #for directory in listing:
-        for filename in files:
+        for filename in files[1:]:
+            counter += 1
+            progress(50, counter*100/numberOfFiles)
             filePath = os.path.join(root, filename)
-        #for infile in directory:    
-            #print filePath
             text = text + extractMailFromFile(filePath)
-        
+
     getTopKeywords(text)
 
 def extractMailFromFile(filename):
+    #print filename
     msg=pyzmail.PyzMessage.factory(open(filename, 'rb'))
     #print len(msg.mailparts)
     #print msg.mailparts
-    str_list = []
+    text = ""
     for mailpart in msg.mailparts:
         if mailpart.is_body=='text/plain':
         #if mailpart.is_body=='text/html':
+            #print mailpart.charset
             payload, used_charset=pyzmail.decode_text(mailpart.get_payload(), mailpart.charset, None) 
-            for line in payload.split('\n'):
-                if line:
-                    str_list.append(`line`)
-                    #print line
-                    #print stripHTML.strip_tags(line)"""
-    return ''.join(str_list)
+            for line in payload.replace('\r',' ').split('\n'):
+                # omit lines starting with >, which is normally a quote for previous mail
+                if not line.startswith('>'):
+                    text = text + line
+    return text
 
-#http://programming-review.com/top-keywords-in-python/
 def getTopKeywords(text):
+    print "Building a list of the top keywords..."
+    #http://programming-review.com/top-keywords-in-python/
     #https://es.wiktionary.org/wiki/Ap%C3%A9ndice:Palabras_m%C3%A1s_frecuentes_del_espa%C3%B1ol
-    stopwords = 'de que no a la el es y en lo un por me qué una te los se con para mi está si pero las su yo tu del al como le eso sí esta ya más muy hay bien estoy todo nos tengo ha este cuando sólo vamos cómo estás o soy puedo esto quiero aquí tiene tú ahora algo fue son ser he era eres así sé tiene ese bueno creo todos sus puede voy tan esa porque dónde hacer quién nunca nada él estaba están quieres va sabes vez hace ella dos tenemos puedes sin hasta sr'
-    stoplist = stopwords.split()
-    print "Top keywords"
+    stoplist = decode('from: to: re: cc: de: para: subject: asunto: date: fecha: escribió: de que no a la el es y en lo un por me qué una te los se con para mi está si pero las su yo tu del al como le eso sí esta ya más muy hay bien estoy todo nos tengo ha este cuando sólo vamos cómo estás o soy puedo esto quiero aquí tiene tú ahora algo fue son ser he era eres así sé tiene ese bueno creo todos sus puede voy tan esa porque dónde hacer quién nunca nada él estaba están quieres va sabes vez hace ella dos tenemos puedes sin hasta sr és per dels jo amb com ho has').split()
+    omitcharacterlist = '@ ( / -'.split()
+    print "Top keywords:"
     wordList1 = []
     wordList1 = text.lower().split(None)
     wordList2 = []
@@ -71,7 +78,8 @@ def getTopKeywords(text):
             word2 = word1
         # build a wordList2 of lower case modified words
         if len(word2.lower()) > 1 and word2.lower() not in stoplist:
-            wordList2.append(word2.lower())
+            if not any(character in word2.lower() for character in omitcharacterlist):
+                wordList2.append(word2.lower())
         
     # create word frequency dictionary  = hashtable
     Dict = {}
@@ -87,10 +95,9 @@ def getTopKeywords(text):
         return d[1] 
     
     items = sorted(Dict.items(), key=byvalues, reverse=True)
-    # Print the first 40
-    #for item in items[:10]:
-    for item in items[:40]:
-        print item[0].encode('utf-8'), item[1]
+    for item in items:
+        if item[1] > 50:
+            print item[0], item[1]
     
 # http://stackoverflow.com/questions/753052/strip-html-from-strings-in-python
 class MLStripper(HTMLParser):
@@ -106,6 +113,28 @@ def strip_tags(html):
     s = MLStripper()
     s.feed(html)
     return s.get_data()
+
+def decode(s, encodings=('ascii', 'utf8', 'ISO-8859-1')):
+    for encoding in encodings:
+        try:
+            return s.decode(encoding)
+        except UnicodeDecodeError:
+            pass
+    return s.decode('ascii', 'ignore')
+
+# http://snipplr.com/view/25735/python-cli-command-line-progress-bar/
+# width defines bar width
+# percent defines current percentage
+def progress(width, percent):
+    marks = math.floor(width * (percent / 100.0))
+    spaces = math.floor(width - marks)
+    
+    loader = '[' + ('=' * int(marks)) + (' ' * int(spaces)) + ']'
+    
+    sys.stdout.write("%s %d%%\r" % (loader, percent))
+    if percent >= 100:
+        sys.stdout.write("\n")
+    sys.stdout.flush()
     
 if __name__ == "__main__":
     main(sys.argv)

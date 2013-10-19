@@ -6,7 +6,7 @@ import os
 import time
 import math
 from HTMLParser import HTMLParser
-from progress_bar import ProgressBar
+import argparse
 
 try:
     import pyzmail
@@ -18,20 +18,36 @@ except ImportError:
     import pyzmail
 
 def main(argv):
-    if len(sys.argv) < 0:
-        sys.exit('Usage: %s Directory containing mails (including subfolders)' % sys.argv[0])
+    args = optionParser(argv)
+    if not args.count:
+        print('Reading from %s ... ' % args.folder)
+        extractMailFromPath(args.folder, args.count)
+    else:
+        extractMailFromPath(args.folder, 10)
 
-    print "Reading from: " + argv[1]
+def optionParser(argv):
+    parser = argparse.ArgumentParser()
+    parser.add_argument("folder", help="the folder to process",
+                        type=str)
+    parser.add_argument("-c", "--count", help="show words with count greater or equal than this number. Default: 10",
+                        type=int)
+                        
+    args = parser.parse_args()
     
-    extractMailFromPath(argv[1])
+    if os.path.exists(args.folder):
+        return args
+    else:
+        sys.exit('Sorry: directory %s does not exist!' % args.folder)
 
-def extractMailFromPath(path):
-    #First we get 
+def buildDictionary():
+    return True
+
+def extractMailFromPath(path, repetitions):
     numberOfFiles = 0
     for root, subFolders, files in os.walk(path):
         for filename in files[1:]:
             numberOfFiles += 1
-
+    print "Analyzing %s mails..." % numberOfFiles
     counter = 0
     text = ""
     for root, subFolders, files in os.walk(path):
@@ -41,7 +57,7 @@ def extractMailFromPath(path):
             filePath = os.path.join(root, filename)
             text = text + extractMailFromFile(filePath)
 
-    getTopKeywords(text)
+    getTopKeywords(text, repetitions)
 
 def extractMailFromFile(filename):
     #print filename
@@ -60,11 +76,11 @@ def extractMailFromFile(filename):
                     text = text + line
     return text
 
-def getTopKeywords(text):
+def getTopKeywords(text, repetitions):
     print "Building a list of the top keywords..."
     #http://programming-review.com/top-keywords-in-python/
     #https://es.wiktionary.org/wiki/Ap%C3%A9ndice:Palabras_m%C3%A1s_frecuentes_del_espa%C3%B1ol
-    stoplist = decode('from: to: re: cc: de: para: subject: asunto: date: fecha: escribió: de que no a la el es y en lo un por me qué una te los se con para mi está si pero las su yo tu del al como le eso sí esta ya más muy hay bien estoy todo nos tengo ha este cuando sólo vamos cómo estás o soy puedo esto quiero aquí tiene tú ahora algo fue son ser he era eres así sé tiene ese bueno creo todos sus puede voy tan esa porque dónde hacer quién nunca nada él estaba están quieres va sabes vez hace ella dos tenemos puedes sin hasta sr és per dels jo amb com ho has').split()
+    omitwords = decode('from: to: re: cc: de: para: subject: asunto: date: fecha: escribió: de que no a la el es y en lo un por me qué una te los se con para mi está si pero las su yo tu del al como le eso sí esta ya más muy hay bien estoy todo nos tengo ha este cuando sólo vamos cómo estás o soy puedo esto quiero aquí tiene tú ahora algo fue son ser he era eres así sé tiene ese bueno creo todos sus puede voy tan esa porque dónde hacer quién nunca nada él estaba están quieres va sabes vez hace ella dos tenemos puedes sin hasta sr és per dels jo amb com ho has').split()
     omitcharacterlist = '@ ( / -'.split()
     print "Top keywords:"
     wordList1 = []
@@ -77,7 +93,7 @@ def getTopKeywords(text):
         else:
             word2 = word1
         # build a wordList2 of lower case modified words
-        if len(word2.lower()) > 1 and word2.lower() not in stoplist:
+        if len(word2.lower()) > 1 and word2.lower() not in omitwords:
             if not any(character in word2.lower() for character in omitcharacterlist):
                 wordList2.append(word2.lower())
         
@@ -96,8 +112,8 @@ def getTopKeywords(text):
     
     items = sorted(Dict.items(), key=byvalues, reverse=True)
     for item in items:
-        if item[1] > 50:
-            print item[0], item[1]
+        if item[1] > repetitions:
+            print " ", item[0], item[1]
     
 # http://stackoverflow.com/questions/753052/strip-html-from-strings-in-python
 class MLStripper(HTMLParser):

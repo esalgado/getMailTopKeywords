@@ -18,7 +18,7 @@ def main(argv):
     omitwords = decode('from to re de para subject asunto date fecha escribió de que no a la el es y en lo un por me qué una te los se con para mi está si pero las su yo tu del al como le eso sí esta ya más muy hay bien estoy todo nos tengo ha este cuando sólo vamos cómo estás o soy puedo esto quiero aquí tiene tú ahora algo fue son ser he era eres así sé tiene ese bueno creo todos sus puede voy tan esa porque dónde hacer quién nunca nada él estaba están quieres va sabes vez hace ella dos tenemos puedes sin hasta sr és per dels jo amb com ho has').split()
      #https://es.wiktionary.org/wiki/Ap%C3%A9ndice:Palabras_m%C3%A1s_frecuentes_del_espa%C3%B1ol
 
-    language = 'es'    
+    language = 'en'    
     if args.lang:
         language = args.lang
     
@@ -34,18 +34,32 @@ def main(argv):
 
     words = wordsInDict
     if args.nltk:
-        print "Processing using Natural Language Toolkit..."
-        words = stemWords(words)
+        words = stemWords(words, language)
     
     returnRepetitions(words, count)
     
-def stemWords(list):
+def stemWords(list, lang):
     #http://nltk.org/index.html
     from nltk.stem import SnowballStemmer
-    st = SnowballStemmer("spanish")
-    stemedList = []
-    for word in list:
-        stemedList.append(st.stem(word))
+    nltk = True
+    if lang == "es":
+        lang = "spanish"
+    elif lang == "en":
+        lang = "english"
+    else:
+        print "Language %s not supported in NLTK, not processing." % lang
+        nltk = False
+        lang = "english"
+
+    if nltk:
+        print "Processing using Natural Language Toolkit in %s..." % lang
+        st = SnowballStemmer(lang)
+        stemedList = []
+        for word in list:
+            stemedList.append(st.stem(word))
+    else:
+        stemedList = list
+    
     return stemedList
 
 def optionParser(argv):
@@ -57,7 +71,7 @@ def optionParser(argv):
     parser.add_argument("-a", "--aspell", help="whether to check the words using Aspell. Requires python-aspell library. See https://github.com/WojciechMula/aspell-python. Default: no",
                         action="store_true")
 
-    parser.add_argument("-l", "--lang", help="check words in that language (only if -d is set). Default: es",
+    parser.add_argument("-l", "--lang", help="check words in that language (only if -a is set).\nNeeds aspell dictionary in that language installed.\nDefault: en",
                         type=str)
 
     parser.add_argument("-n", "--nltk", help="use Natural Language Toolkit. Requires nltk library. See http://nltk.org/index.html. Default: no",
